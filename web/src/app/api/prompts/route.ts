@@ -206,7 +206,9 @@ function firstMatch(value: string, pattern: RegExp) {
 }
 
 function extractMarkdownImages(baseUrl: string, markdown: string) {
-    return Array.from(markdown.matchAll(/!\[[^\]]*]\(([^)]+)\)/g), (match) => absoluteImage(baseUrl, match[1])).filter(Boolean);
+    const markdownImages = Array.from(markdown.matchAll(/!\[[^\]]*]\(([^)]+)\)/g), (match) => match[1]);
+    const htmlImages = Array.from(markdown.matchAll(/<img\b[^>]*\bsrc=["']([^"']+)["'][^>]*>/gi), (match) => match[1]);
+    return [...markdownImages, ...htmlImages].map((image) => absoluteImage(baseUrl, image)).filter(isPromptPreviewImage);
 }
 
 function absoluteImage(baseUrl: string, image: string) {
@@ -243,6 +245,20 @@ function splitTags(value: string, pattern: RegExp) {
 
 function markdownPreview(images: string[]) {
     return images.filter(Boolean).map((image) => `![](${image})`).join("\n\n");
+}
+
+function isPromptPreviewImage(image: string) {
+    if (!image) return false;
+    try {
+        const url = new URL(image);
+        const host = url.hostname.toLowerCase();
+        if (host === "img.shields.io" || host === "awesome.re" || host.includes("shields.io") || host.includes("star-history.com")) return false;
+        if (host === "github.com" && url.pathname.includes("/actions/workflows/")) return false;
+        if (url.pathname.toLowerCase().includes("/badge")) return false;
+        return true;
+    } catch {
+        return true;
+    }
 }
 
 function collectTags(items: Prompt[]) {
